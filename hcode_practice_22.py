@@ -12,10 +12,10 @@ class Pizza:
         self.comrades = set([])
         self.comrade_score = []
         self.comrades_sorted = []
-        self.parent = -1
+        self.parent = set([])
 
 
-def add(_idx, parent=-1):
+def add(_idx, parent):
     global taken_idxes, not_taken_idxes, taken_freq
     taken_idxes |= {_idx}
     not_taken_idxes -= {_idx}
@@ -23,7 +23,7 @@ def add(_idx, parent=-1):
     for _like in _pizza.likes:
         taken_freq[_like] += 1
     _pizza.taken = 1
-    _pizza.parent = parent
+    _pizza.parent |= {parent}
 
 
 def remove(_idx):
@@ -36,7 +36,7 @@ def remove(_idx):
     _pizza.taken = 0
 
 
-def safe_add(_idx, del_max, parent=-1):
+def safe_add(_idx, del_max, parent):
     if net_addition([_idx]) >= 1 - del_max:
         add(_idx, parent)
         enemies = pizzas[_idx].enemies & taken_idxes
@@ -61,14 +61,13 @@ def net_addition(idxes):
 def get_difference_index(idxes):
     # How different pizza_2 is from pizza_1 (base-line). Lower means more similar
     diff_idx = 0
+    pizza_2 = pizzas[idxes[-1]]
     for i in range(len(idxes)-1):
         pizza_1 = pizzas[idxes[i]]
-        for j in range(i+1, len(idxes)):
-            pizza_2 = pizzas[idxes[j]]
-            diff_idx -= len(pizza_1.likes & pizza_2.likes) * 2
-            diff_idx -= len(pizza_1.dislikes & pizza_2.dislikes) * 2
-            diff_idx += len(pizza_2.likes - pizza_1.likes)
-            diff_idx += len(pizza_2.dislikes - pizza_1.dislikes)
+        diff_idx -= len(pizza_1.likes & pizza_2.likes) * 2
+        diff_idx -= len(pizza_1.dislikes & pizza_2.dislikes) * 2
+        diff_idx += len(pizza_2.likes - pizza_1.likes)
+        diff_idx += len(pizza_2.dislikes - pizza_1.dislikes)
     return diff_idx
 
 
@@ -84,10 +83,8 @@ def get_available_comrades(_idx, amt):
 
 
 def get_next():
-    # order = sorted(not_taken_idxes, key=lambda _idx: (get_not_taken_displaced_ct(_idx),
-    #                                                  get_difference_index(get_available_comrades(_idx, size-1)),
-    #                                                  net_addition(get_available_comrades(_idx, size-1))))
     order = sorted(not_taken_idxes, key=sort_fn)
+    order = sorted(order[:sub_size], key=sort_fn_sub)
     if not order:
         return []
     _pizza = pizzas[order[0]]
@@ -97,35 +94,36 @@ def get_next():
 def final_score():
     final = set(taken_ingredients())
     ok = 0
-    for idx in range(n):
+    for _idx in range(n):
         good = 1
-        pizza = pizzas[idx]
-        for like in pizza.likes:
-            good &= (like in final)
-        for dislike in pizza.dislikes:
-            good &= (dislike not in final)
+        _pizza = pizzas[idx]
+        for _like in _pizza.likes:
+            good &= (_like in final)
+        for _dislike in pizza.dislikes:
+            good &= (_dislike not in final)
         ok += good
     return ok
 
 
-sort_fn = lambda _idx: (get_taken_displaced_ct(_idx), get_not_taken_displaced_ct(_idx))
-sort_fn_2 = lambda _idx: (get_not_taken_displaced_ct(_idx),
-                          get_difference_index(get_available_comrades(_idx, size-1)),
-                          net_addition(get_available_comrades(_idx, size-1)))
+sub_size = 50
+sort_fn = lambda _idx: (len(pizzas[_idx].parent & {len(not_taken_idxes)}), get_taken_displaced_ct(_idx), get_not_taken_displaced_ct(_idx))
+sort_fn_sub = lambda _idx: (len(pizzas[_idx].parent & {len(not_taken_idxes)}), -net_addition([_idx]), get_difference_index(list(taken_idxes)+[_idx]))
 
 
-def re_init(_sort_fn=sort_fn):
-    global taken_idxes, not_taken_idxes, taken_freq, sort_fn
+def re_init(_sort_fn=sort_fn, _sort_fn_sub=sort_fn_sub, _sub_size=sub_size):
+    global taken_idxes, not_taken_idxes, taken_freq, sort_fn, sort_fn_sub, sub_size
     taken_idxes = set([])
     not_taken_idxes = set(range(n))
     taken_freq = d(int)
     for pizza in pizzas:
-        pizza.parent = -1
+        pizza.parent = set([])
     sort_fn = _sort_fn
+    sort_fn_sub = _sort_fn_sub
+    sub_size = _sub_size
 
 
 def solve(_size, del_max):
-    global size
+    global size, min_not_taken
     size = _size
     added, parent = True, -2
     while added:
@@ -133,19 +131,21 @@ def solve(_size, del_max):
         if not next_idxes:
             break
         for idx in next_idxes:
-            if pizzas[idx].parent == parent:
+            if pizzas[idx].parent & {parent}:
                 print >> sys.stderr, "encountered loop"
                 added = False
                 break
             added = safe_add(idx, del_max, parent)
+            if len(not_taken_idxes) < min_not_taken:  # Intermediate writes for long runs
+                min_not_taken = len(not_taken_idxes)
+                final_pizza = taken_ingredients()
+                out = open("fme.txt", "w")
+                print >> out, final_score(), len(final_pizza), " ".join(sorted(final_pizza))
+                out.flush()
             parent = len(not_taken_idxes)
             if not added:
                 break
         print >> sys.stderr, len(not_taken_idxes)
-
-    final_pizza = taken_ingredients()
-    out = open("fme.txt", "w")
-    print >> out, len(final_pizza), " ".join(sorted(final_pizza))
     print >> sys.stderr, "score =", final_score()
 
 
@@ -160,6 +160,7 @@ get_not_taken_displaced_ct = lambda _idx: len(pizzas[_idx].enemies & not_taken_i
 
 sys.stdin = open("/Users/fortune/Downloads/input_data/d_difficult.in.txt")
 n = input()
+min_not_taken = n
 not_taken_idxes = set(range(n))
 for idx in range(n):
     likes = set(raw_input().split()[1:])
@@ -181,7 +182,4 @@ for pizza in pizzas:
     pizza.comrades_sorted = [x[1] for x in sorted(zip(pizza.comrade_score, pizza.comrades))]
 
 sys.stdin = open("/dev/tty")
-solve(1, 0)
-# to re-run
-# re_init(_sort_fn=sort_fn)
-# solve(1, 0)
+solve(1, 500)
