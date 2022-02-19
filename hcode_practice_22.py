@@ -96,18 +96,18 @@ def final_score():
     ok = 0
     for _idx in range(n):
         good = 1
-        _pizza = pizzas[idx]
+        _pizza = pizzas[_idx]
         for _like in _pizza.likes:
             good &= (_like in final)
-        for _dislike in pizza.dislikes:
+        for _dislike in _pizza.dislikes:
             good &= (_dislike not in final)
         ok += good
     return ok
 
 
 sub_size = 50
-sort_fn = lambda _idx: (len(pizzas[_idx].parent & {len(not_taken_idxes)}), get_taken_displaced_ct(_idx), get_not_taken_displaced_ct(_idx))
-sort_fn_sub = lambda _idx: (len(pizzas[_idx].parent & {len(not_taken_idxes)}), -net_addition([_idx]), get_difference_index(list(taken_idxes)+[_idx]))
+sort_fn = lambda _idx: (len(not_taken_idxes) in pizzas[_idx].parent, get_taken_displaced_ct(_idx), get_not_taken_displaced_ct(_idx))
+sort_fn_sub = lambda _idx: (len(not_taken_idxes) in pizzas[_idx].parent, -net_addition([_idx]), get_difference_index(list(taken_idxes)+[_idx]))
 
 
 def re_init(_sort_fn=sort_fn, _sort_fn_sub=sort_fn_sub, _sub_size=sub_size):
