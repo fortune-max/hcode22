@@ -158,7 +158,7 @@ taken_ingredients = lambda: [ingr for ingr in taken_freq if taken_freq[ingr]]
 get_taken_displaced_ct = lambda _idx: len(pizzas[_idx].enemies & taken_idxes)
 get_not_taken_displaced_ct = lambda _idx: len(pizzas[_idx].enemies & not_taken_idxes)
 
-sys.stdin = open("/Users/fortune/Downloads/input_data/d_difficult.in.txt")
+sys.stdin = open("./input_data/d_difficult.in.txt")
 n = input()
 min_not_taken = n
 not_taken_idxes = set(range(n))
